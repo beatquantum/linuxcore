@@ -1,0 +1,18 @@
+/* TEAM */
+Technology Architect: Santosh Pandit
+
+/* CONTACT */
+Email: contact@hard.email
+Website: https://linuxcore.cloud
+Twitter: @SantoshPanditUK
+
+/* SITE */
+Last Update: 2024-11-10
+Standards: HTML5, CSS3, JavaScript
+Software: LEMP, ELK
+
+/* THANKS */
+Special Thanks: W3C, GitHub communities
+
+/* COPYRIGHT */
+Copyright (c) 2024 Santosh Pandit. All rights reserved.
