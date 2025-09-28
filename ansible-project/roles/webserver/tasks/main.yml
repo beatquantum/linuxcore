@@ -1,3 +1,85 @@
 #SPDX-License-Identifier: MIT-0
 ---
 # tasks file for webserver
+- name: Update apt cache initially
+  ansible.builtin.apt:
+    update_cache: yes
+  become: yes
+
+- name: Install extrepo
+  ansible.builtin.apt:
+    name: extrepo
+    state: present
+  become: yes
+
+- name: Enable n.wtf repository
+  ansible.builtin.command: extrepo enable n.wtf
+  become: yes
+  changed_when: true
+
+- name: Update apt cache after enabling repository
+  ansible.builtin.apt:
+    update_cache: yes
+  become: yes
+
+- name: Install nginx-extras
+  ansible.builtin.apt:
+    name: nginx-extras
+    state: present
+  become: yes
+
+- name: Copy nginx.conf
+  ansible.builtin.copy:
+    src: nginx.conf
+    dest: /etc/nginx/nginx.conf
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  notify: Reload nginx
+
+- name: Ensure conf.d directory exists
+  ansible.builtin.file:
+    path: /etc/nginx/conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: yes
+
+- name: Copy badagent.conf
+  ansible.builtin.copy:
+    src: badagent.conf
+    dest: /etc/nginx/conf.d/badagent.conf
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  notify: Reload nginx
+
+- name: Copy loggable.conf
+  ansible.builtin.copy:
+    src: loggable.conf
+    dest: /etc/nginx/conf.d/loggable.conf
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  notify: Reload nginx
+
+- name: Copy geoblocking.conf
+  ansible.builtin.copy:
+    src: geoblocking.conf
+    dest: /etc/nginx/conf.d/geoblocking.conf
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  notify: Reload nginx
+
+- name: Ensure nginx service is enabled and running
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: yes
+  become: yes
