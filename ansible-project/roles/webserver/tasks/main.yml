@@ -77,6 +77,48 @@
   become: yes
   notify: Reload nginx
 
+- name: Install PHP 8.4-FPM prerequisites
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - apt-transport-https
+      - lsb-release
+    state: present
+    update_cache: yes
+  become: yes
+
+- name: Add PHP repository GPG key
+  ansible.builtin.get_url:
+    url: https://packages.sury.org/php/apt.gpg
+    dest: /etc/apt/trusted.gpg.d/php.gpg
+    mode: '0644'
+  become: yes
+
+- name: Add PHP repository
+  ansible.builtin.apt_repository:
+    repo: "deb https://packages.sury.org/php/ {{ ansible_distribution_release }} main"
+    state: present
+    filename: php
+  become: yes
+
+- name: Update apt cache after adding PHP repository
+  ansible.builtin.apt:
+    update_cache: yes
+  become: yes
+
+- name: Install php8.4-fpm
+  ansible.builtin.apt:
+    name: php8.4-fpm
+    state: present
+  become: yes
+
+- name: Ensure php8.4-fpm service is enabled and running
+  ansible.builtin.service:
+    name: php8.4-fpm
+    state: started
+    enabled: yes
+  become: yes
+
 - name: Ensure nginx service is enabled and running
   ansible.builtin.service:
     name: nginx
