@@ -119,6 +119,12 @@
     enabled: yes
   become: yes
 
+- name: Install geoip-database for geoblocking
+  ansible.builtin.apt:
+    name: geoip-database
+    state: present
+  become: yes
+
 - name: Ensure nginx service is enabled and running
   ansible.builtin.service:
     name: nginx
