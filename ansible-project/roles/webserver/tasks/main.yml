@@ -5,29 +5,24 @@
   ansible.builtin.apt:
     update_cache: yes
   become: yes
-
 - name: Install extrepo
   ansible.builtin.apt:
     name: extrepo
     state: present
   become: yes
-
 - name: Enable n.wtf repository
   ansible.builtin.command: extrepo enable n.wtf
   become: yes
   changed_when: true
-
 - name: Update apt cache after enabling repository
   ansible.builtin.apt:
     update_cache: yes
   become: yes
-
 - name: Install nginx-extras
   ansible.builtin.apt:
     name: nginx-extras
     state: present
   become: yes
-
 - name: Copy nginx.conf
   ansible.builtin.copy:
     src: nginx.conf
@@ -37,7 +32,6 @@
     mode: '0644'
   become: yes
   notify: Reload nginx
-
 - name: Ensure conf.d directory exists
   ansible.builtin.file:
     path: /etc/nginx/conf.d
@@ -46,7 +40,6 @@
     group: root
     mode: '0755'
   become: yes
-
 - name: Copy badagent.conf
   ansible.builtin.copy:
     src: badagent.conf
@@ -56,7 +49,6 @@
     mode: '0644'
   become: yes
   notify: Reload nginx
-
 - name: Copy loggable.conf
   ansible.builtin.copy:
     src: loggable.conf
@@ -66,7 +58,6 @@
     mode: '0644'
   become: yes
   notify: Reload nginx
-
 - name: Copy geoblocking.conf
   ansible.builtin.copy:
     src: geoblocking.conf
@@ -76,42 +67,45 @@
     mode: '0644'
   become: yes
   notify: Reload nginx
-
 - name: Install PHP 8.4-FPM prerequisites
   ansible.builtin.apt:
     name:
       - ca-certificates
       - apt-transport-https
       - lsb-release
+      - gnupg
     state: present
     update_cache: yes
   become: yes
-
+- name: Ensure keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: yes
 - name: Add PHP repository GPG key
   ansible.builtin.get_url:
     url: https://packages.sury.org/php/apt.gpg
-    dest: /etc/apt/trusted.gpg.d/php.gpg
+    dest: /etc/apt/keyrings/php.gpg
     mode: '0644'
   become: yes
-
 - name: Add PHP repository
   ansible.builtin.apt_repository:
-    repo: "deb https://packages.sury.org/php/ {{ ansible_distribution_release }} main"
+    repo: "deb [signed-by=/etc/apt/keyrings/php.gpg] https://packages.sury.org/php/ {{ ansible_distribution_release }} main"
     state: present
     filename: php
   become: yes
-
 - name: Update apt cache after adding PHP repository
   ansible.builtin.apt:
     update_cache: yes
   become: yes
-
 - name: Install php8.4-fpm
   ansible.builtin.apt:
     name: php8.4-fpm
     state: present
   become: yes
-
 - name: Ensure php8.4-fpm service is enabled and running
   ansible.builtin.service:
     name: php8.4-fpm
@@ -119,11 +113,71 @@
     enabled: yes
   become: yes
 
-- name: Install geoip-database for geoblocking
-  ansible.builtin.apt:
-    name: geoip-database
-    state: present
+- name: Ensure GeoIP directory exists
+  ansible.builtin.file:
+    path: /usr/share/GeoIP
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
   become: yes
+
+- name: Check if GeoLite2-Country.mmdb exists
+  ansible.builtin.stat:
+    path: /usr/share/GeoIP/GeoLite2-Country.mmdb
+  become: yes
+  register: geoip_mmdb_stat
+
+- name: Download GeoLite2-Country database
+  ansible.builtin.get_url:
+    url: "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country&license_key={{ maxmind_license_key }}&suffix=tar.gz"
+    dest: /tmp/GeoLite2-Country.tar.gz
+    mode: '0644'
+    checksum: "{{ geoip2_checksum | default(omit) }}"
+  become: yes
+  when: not geoip_mmdb_stat.stat.exists
+  register: geoip_download
+
+- name: Extract GeoLite2-Country database
+  ansible.builtin.unarchive:
+    src: /tmp/GeoLite2-Country.tar.gz
+    dest: /tmp/
+    remote_src: yes
+    creates: /tmp/GeoLite2-Country_*/GeoLite2-Country.mmdb
+  become: yes
+  when: not geoip_mmdb_stat.stat.exists
+
+- name: Find extracted GeoLite2-Country.mmdb file
+  ansible.builtin.find:
+    paths: /tmp
+    patterns: 'GeoLite2-Country.mmdb'
+    recurse: yes
+    file_type: file
+  become: yes
+  register: geoip_mmdb_files
+  when: not geoip_mmdb_stat.stat.exists
+
+- name: Copy GeoLite2-Country.mmdb to final location
+  ansible.builtin.copy:
+    src: "{{ geoip_mmdb_files.files[0].path }}"
+    dest: /usr/share/GeoIP/GeoLite2-Country.mmdb
+    owner: root
+    group: root
+    mode: '0644'
+    remote_src: yes
+  become: yes
+  notify: Reload nginx
+  when: not geoip_mmdb_stat.stat.exists and geoip_mmdb_files is defined and (geoip_mmdb_files.files | length > 0)
+
+- name: Clean up temporary GeoIP files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  become: yes
+  loop:
+    - /tmp/GeoLite2-Country.tar.gz
+    - /tmp/GeoLite2-Country_*
+  when: not geoip_mmdb_stat.stat.exists
 
 - name: Ensure nginx service is enabled and running
   ansible.builtin.service:
